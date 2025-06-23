@@ -18,6 +18,8 @@
     import NewServiceModal from "./lib/modals/NewServiceModal.svelte";
     import CustomModal from "./lib/modals/CustomModal.svelte";
 
+    const WEEK = 7 * 24 * 60 * 60 * 1000;
+
     let services: Service[] = [];
     let current_service: Service;
 
@@ -39,16 +41,6 @@
 
     let data_files: File_t[];
     let script_file: File_t | null = null;
-
-    onMount(async () => {
-        // Check if user is already signed in
-        const client = await signIn();
-        setClient(client);
-
-        services = await listServices();
-        current_service = nextService(services);
-        services = [...services];
-    });
 
     async function onSetService(): Promise<void> {
         try {
@@ -75,8 +67,7 @@
         const service = deleteServiceModal.state_?.service;
         if (!service || !deleteServiceModal.state_) return;
 
-        // no confirmation if more than 2w old
-        const WEEK = 7 * 24 * 60 * 60 * 1000;
+        // no confirmation if more than 1w old
         const serviceAge = Date.now() - service.date.getTime();
         if (serviceAge > WEEK) {
             await deleteService(service);
@@ -106,6 +97,29 @@
         current_service = nextService(services);
         deleteServiceModal.close();
     }
+
+    new Promise<void>(async (res, _) => {
+        // Check if user is already signed in
+        const client = await signIn();
+        setClient(client);
+
+        console.log("signed in");
+
+        services = await listServices();
+        for (const el of services) {
+            if (
+                el.date.getTime() + 4 * WEEK < Date.now() &&
+                el.prefix !== "946684800000"
+            ) {
+                deleteService(el);
+            }
+        }
+        services = await listServices();
+
+        current_service = nextService(services);
+        services = [...services];
+        res();
+    });
 </script>
 
 <main
@@ -116,8 +130,8 @@
     <div class="flex-none flex flex-row justify-stretch gap-8">
         <h1>
             <span class="text-emerald-400"></span><span
-                class="grow-0 text-4xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-indigo-500 to-emerald-500"
-                >&gt;&gt; Service Repository (WIP)</span
+                class="grow text-4xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-indigo-500 to-emerald-500"
+                >&gt;&gt; Service Repository</span
             >
         </h1>
         <div class="grow"></div>
@@ -139,6 +153,7 @@
             <div class="border-l-2 border-emerald-800" />
             <button
                 on:click={() => {
+                    if (current_service.prefix === "946684800000") return;
                     deleteServiceModal.show({ service: current_service });
                 }}
                 class="p-3 text-rose-500 hover:bg-rose-500 hover:text-black transition-all duration-200 m-[-2px] ml-0"
